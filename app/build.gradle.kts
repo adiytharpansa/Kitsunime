@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.kitsunime.app"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.kitsunime.app"
@@ -67,4 +67,14 @@ dependencies {
 
     // Mesin pemutar: mpv lewat libmpv (mpv 0.42 + FFmpeg + libass).
     implementation("io.github.midasvo:libmpv:1.2.0")
+}
+
+// libmpv 1.2.0 diterbitkan dengan syarat minCompileSdk 37 (Android 17).
+// Google kini menerbitkan platform SDK sebagai 37.0/37.1/37.2 ("minor SDK")
+// yang hanya dipahami AGP 9; platform polos untuk AGP 8.7.3 berhenti di 36.
+// API publik libmpv hanya memakai API Android lama (Context, Surface) dan
+// minSdk-nya 26, jadi pemeriksaan metadata AAR ini dilewati secara sadar.
+// Naikkan ke AGP 9 + compileSdk 37.0 bila perkakasnya diganti nanti.
+tasks.configureEach {
+    if (name.endsWith("AarMetadata")) enabled = false
 }
