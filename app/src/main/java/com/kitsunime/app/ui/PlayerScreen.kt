@@ -20,10 +20,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +59,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val SPEEDS = listOf(1.0, 1.25, 1.5, 1.75, 2.0)
+
+/** Pilihan subtitle: bahasa yang diutamakan mpv saat memilih trek otomatis. */
+private enum class SubMode(val label: String, val slang: String) {
+    AUTO("Otomatis", "id,ind,en,eng"),
+    ID("Indonesia", "id,ind"),
+    EN("Inggris", "en,eng"),
+}
+
+private fun applySubMode(m: MPVLib?, mode: SubMode) {
+    if (m == null) return
+    try {
+        m.setPropertyString("slang", mode.slang)
+        // Memasang ulang sid=auto memaksa mpv memilih trek sesuai slang baru.
+        m.setPropertyString("sid", "auto")
+    } catch (e: Exception) { }
+}
 
 private fun fmt(sec: Double): String {
     val s = sec.toInt().coerceAtLeast(0)
@@ -91,6 +110,8 @@ fun PlayerScreen(
     var seekValue by remember { mutableStateOf(0f) }
     var surfaceReady by remember { mutableStateOf(false) }
     var loadedFor by remember { mutableStateOf<String?>(null) }
+    var subMode by remember { mutableStateOf(SubMode.AUTO) }
+    var subMenuOpen by remember { mutableStateOf(false) }
 
     val mpv = remember {
         MPVLib.create(context.applicationContext)?.also { m ->
@@ -103,6 +124,8 @@ fun PlayerScreen(
             m.setOptionString("cache", "yes")
             m.setOptionString("demuxer-max-bytes", "64MiB")
             m.setOptionString("demuxer-max-back-bytes", "32MiB")
+            // Utamakan subtitle Indonesia sejak awal, Inggris sebagai cadangan.
+            m.setOptionString("slang", SubMode.AUTO.slang)
             m.init()
         }
     }
@@ -126,7 +149,10 @@ fun PlayerScreen(
                 }
                 override fun eventProperty(property: String, value: String) {}
                 override fun event(eventId: Int) {
-                    if (eventId == MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED) loaded = true
+                    if (eventId == MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED) {
+                        loaded = true
+                        applySubMode(mpv, subMode)
+                    }
                 }
             }
             mpv.addObserver(observer)
@@ -179,8 +205,8 @@ fun PlayerScreen(
     }
 
     // Kontrol sembunyi sendiri saat video jalan.
-    LaunchedEffect(controlsVisible, paused, seeking) {
-        if (controlsVisible && !paused && !seeking) {
+    LaunchedEffect(controlsVisible, paused, seeking, subMenuOpen) {
+        if (controlsVisible && !paused && !seeking && !subMenuOpen) {
             delay(3_500)
             controlsVisible = false
         }
@@ -367,16 +393,38 @@ fun PlayerScreen(
                     ) {
                         Text("${speed}×", color = Color.White, fontWeight = FontWeight.Bold)
                     }
-                    IconButton(
-                        onClick = {
-                            try { mpv?.command(arrayOf("cycle", "sub")) } catch (e: Exception) { }
-                        },
-                    ) {
-                        Icon(
-                            Icons.Filled.Subtitles,
-                            contentDescription = "Ganti subtitle",
-                            tint = Color.White,
-                        )
+                    Box {
+                        IconButton(onClick = { subMenuOpen = true }) {
+                            Icon(
+                                Icons.Filled.Subtitles,
+                                contentDescription = "Pilih subtitle",
+                                tint = if (subMode == SubMode.AUTO) Color.White else KitsunimeYellow,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = subMenuOpen,
+                            onDismissRequest = { subMenuOpen = false },
+                        ) {
+                            SubMode.entries.forEach { mode ->
+                                DropdownMenuItem(
+                                    text = { Text(mode.label) },
+                                    onClick = {
+                                        subMode = mode
+                                        subMenuOpen = false
+                                        applySubMode(mpv, mode)
+                                    },
+                                    trailingIcon = {
+                                        if (mode == subMode) {
+                                            Icon(
+                                                Icons.Filled.Check,
+                                                contentDescription = null,
+                                                tint = KitsunimeYellow,
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                        }
                     }
                     IconButton(
                         onClick = {

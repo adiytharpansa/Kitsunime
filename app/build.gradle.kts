@@ -12,8 +12,8 @@ android {
         applicationId = "com.kitsunime.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         // libmpv membawa pustaka native besar untuk 4 ABI; aplikasi ini
         // ditujukan ke perangkat arm64 (A15) dulu supaya APK ramping.
         ndk {
