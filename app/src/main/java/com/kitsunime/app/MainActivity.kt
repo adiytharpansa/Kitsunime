@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private sealed interface Screen {
-    data object Home : Screen
+    object Home : Screen
     data class Detail(val title: Title) : Screen
     data class Player(val title: Title, val episode: Episode) : Screen
 }
